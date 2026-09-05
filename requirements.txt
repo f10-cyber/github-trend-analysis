@@ -1,0 +1,9 @@
+requests
+PyGithub
+psycopg2-binary
+python-dotenv
+fastapi
+uvicorn
+redis
+scikit-learn
+streamlit
