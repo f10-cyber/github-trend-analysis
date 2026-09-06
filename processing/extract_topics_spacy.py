@@ -21,7 +21,8 @@ GENERIC_WORDS = {
     "problem", "work", "question", "answer",
     "thing", "something", "someone", "everything",
     "time", "lot", "bit", "part", "case", "chapter", "lesson",
-    "tutorial", "section", "finding", "bsd", "mit", "apache", "gpl", "gplv", "lgpl", "mpl", "isc", "unlicense", "copyright",
+    "tutorial", "section", "finding", "bsd", "mit", "apache", "gpl",
+    "gplv", "lgpl", "mpl", "isc", "unlicense", "copyright",
 }
 
 def get_connection():
@@ -49,10 +50,8 @@ def repo_name_tokens(full_name):
     return set(p for p in parts if p)
 
 def is_valid_chunk(chunk):
-    # Buang kalau ada pronoun/determiner sendirian, atau root-nya bukan kata benda
     if chunk.root.pos_ not in ("NOUN", "PROPN"):
         return False
-    # Buang kalau semua token di chunk itu stopword/pronoun
     if all(tok.is_stop or tok.pos_ == "PRON" for tok in chunk):
         return False
     return True
@@ -88,7 +87,39 @@ def extract_noun_phrases(text, name_tokens, max_chars=200000):
             phrases.append(phrase)
     return phrases
 
-def main():
+def get_all_repo_name_tokens():
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT name FROM repositories")
+    names = [row[0] for row in cur.fetchall()]
+    conn.close()
+    tokens = set()
+    for name in names:
+        tokens |= repo_name_tokens(name)
+    return tokens
+
+def get_top_topics_for_category(category, top_n=10):
+    """Dipanggil dari API: hitung topik NLP untuk satu kategori saja."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT COALESCE(readme, ''), COALESCE(issues_text, '')
+        FROM repositories WHERE category = %s
+    """, (category,))
+    rows = cur.fetchall()
+    conn.close()
+
+    name_tokens = get_all_repo_name_tokens()
+    counter = Counter()
+    for readme, issues_text in rows:
+        combined = basic_clean(readme + " " + issues_text)
+        phrases = extract_noun_phrases(combined, name_tokens)
+        counter.update(phrases)
+
+    return counter.most_common(top_n)
+
+def get_all_docs_by_category():
+    """Dipakai buat mode standalone (python3 processing/extract_topics_spacy.py)."""
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("""
@@ -98,18 +129,21 @@ def main():
     rows = cur.fetchall()
     conn.close()
 
-    by_category = defaultdict(Counter)
-    all_name_tokens = set()
-    for _, name, _, _ in rows:
-        all_name_tokens |= repo_name_tokens(name)
-
+    by_category = defaultdict(list)
     for category, name, readme, issues_text in rows:
-        combined = basic_clean(readme + " " + issues_text)
-        phrases = extract_noun_phrases(combined, all_name_tokens)
-        by_category[category].update(phrases)
+        by_category[category].append((readme, issues_text))
+    return by_category
 
-    for category, counter in by_category.items():
+def main():
+    by_category = get_all_docs_by_category()
+    name_tokens = get_all_repo_name_tokens()
+    for category, docs in by_category.items():
         print(f"\n=== {category} ===")
+        counter = Counter()
+        for readme, issues_text in docs:
+            combined = basic_clean(readme + " " + issues_text)
+            phrases = extract_noun_phrases(combined, name_tokens)
+            counter.update(phrases)
         for phrase, count in counter.most_common(10):
             print(f"  {phrase}: {count}")
 
