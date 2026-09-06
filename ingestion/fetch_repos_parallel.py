@@ -18,7 +18,7 @@ CATEGORIES = {
     "mobile": "topic:mobile stars:>1000",
 }
 
-def fetch_repos(query, per_page=10):
+def fetch_repos(query, per_page=50):
     url = "https://api.github.com/search/repositories"
     params = {"q": query, "sort": "stars", "order": "desc", "per_page": per_page}
     response = requests.get(url, headers=HEADERS, params=params)
@@ -27,7 +27,7 @@ def fetch_repos(query, per_page=10):
 
 def get_connection():
     return psycopg2.connect(
-        host="localhost",
+        host=os.getenv("POSTGRES_DB_HOST", "localhost"),
         port=os.getenv("POSTGRES_DB_PORT", "5432"),
         user=os.getenv("POSTGRES_USER"),
         password=os.getenv("POSTGRES_PASSWORD"),

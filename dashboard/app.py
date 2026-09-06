@@ -1,7 +1,8 @@
+import os
 import streamlit as st
 import requests
 
-API_BASE = "http://localhost:8000"
+API_BASE = os.getenv("API_BASE_URL", "http://localhost:8000")
 
 CATEGORIES = {
     "Web Dev": "web-dev",

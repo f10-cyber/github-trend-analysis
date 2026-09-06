@@ -30,7 +30,7 @@ CUSTOM_STOPWORDS = [
 
 def get_connection():
     return psycopg2.connect(
-        host="localhost",
+        host=os.getenv("POSTGRES_DB_HOST", "localhost"),
         port=os.getenv("POSTGRES_DB_PORT", "5432"),
         user=os.getenv("POSTGRES_USER"),
         password=os.getenv("POSTGRES_PASSWORD"),
